@@ -43,6 +43,9 @@ class PTouch:
 	def sendFullImage(self, bitmap):
 		rowheight = 24
 		rows = int(math.ceil(self.dotswidth / rowheight))
+		rows = int(math.floor(self.dotswidth / rowheight))
+		# sollte eigentlich mit math.ceil funktionieren - allerdings meldet der Drucker dann den Fehler PRINT BUFFER FULL
+
 		size = int(len(bitmap)/self.dotswidth)
 		for row in range(rows):
 			bmp = bytearray(rowheight * size)
@@ -144,7 +147,7 @@ class PTouch:
 		elif self.tapewidth == 12:
 			self.dotswidth = 57
 		elif self.tapewidth == 9:
-			self.dotswidth = 48
+			self.dotswidth = 49
 		elif self.tapewidth == 6:
 			self.dotswidth = 28
 
