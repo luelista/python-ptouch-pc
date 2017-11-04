@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
+# vim: noexpandtab 
 #from hubarcode.code128 import Code128Encoder
 from hubarcode.datamatrix import DataMatrixEncoder
 from hubarcode.datamatrix.renderer import DataMatrixRenderer
-import serial
+import serial, socket
 from my_font import my_font
 import math
 import random, string
@@ -11,14 +12,24 @@ import time
 from config import *
 
 class PTouch:
+	BARCODE_CONTROL = ["no change", "no barcode", "barcode only", "including barcode"]
+
 	def __init__(self, serPort):
-		self.ser = serial.Serial(port=serPort, baudrate=9600)
+		if isinstance(serPort, tuple):
+			self.ser = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			self.ser.connect(serPort)
+			self.isSerial = False
+		elif isinstance(serPort, str):
+			self.ser = serial.Serial(port=serPort, baudrate=9600)
+			self.isSerial = True
+		else:
+			raise "Param must be tupel for TCP or string for serial port"
 		self.statusRequest()
 
 	# Printer communication routines
 
 	def initPrinter(self):
-		self.ser.write(b"\x1b@")  # ESC @
+		self.writeBytes(0x1b, 64)  # ESC @
 
 	def setMode(self, feedAmount=26, autocut=True, mirrorPrint=False):
 		mode = feedAmount | (1<<6 if autocut else 0) | (1<<7 if mirrorPrint else 0)
@@ -27,13 +38,16 @@ class PTouch:
 	def writeBytes(self, *b):
 		print(bytearray(b))
 		print(" ".join("%02X"%x for x in b))
-		self.ser.write(bytearray(b))
+		if self.isSerial:
+			self.ser.write(bytearray(b))
+		else:
+			self.ser.send(bytearray(b))
 
 	def print(self, eject=True):
 		if eject:
-			self.ser.write(b"\x03")
+			self.writeBytes(0x03)
 		else:
-			self.ser.write(b"\x0C") # Form Feed
+			self.writeBytes(0x0C) # Form Feed
 
 	def setAbsPosition(self, pos):
 		self.writeBytes(0x1b, 0x24, pos%256, pos>>8)
@@ -76,7 +90,10 @@ class PTouch:
 				byte = byte | ((bitmap[i*8+7-b] & 0x01) << b)
 			bmp3[i] = byte
 			print(format(bmp3[i], '08b'), end="")
-		self.ser.write(bmp3)
+		if self.isSerial:
+			self.ser.write(bmp3)
+		else:
+			self.ser.send(bmp3)
 
 	def sendText(self, text):
 		img = bytearray(len(text)*8*24)
@@ -105,7 +122,10 @@ class PTouch:
 	def statusRequest(self):
 		self.writeBytes(0x1b, 0x69, 0x53)
 		
-		status = self.ser.read(32)
+		if self.isSerial:
+			status = self.ser.read(32)
+		else:
+			status = self.ser.recv(32)
 		header = status[0:8]
 		err1 = status[8] # no tape, tape end, cutter jam
 		err2 = status[9] # type change err, print buf full, transm err, recp buf full
