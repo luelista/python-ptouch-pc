@@ -8,6 +8,7 @@ class SimpleLabelPrinter:
 		self.pt = PTouch(config.serialPort)
 
 	def simpleLabel(self, lines):
+		self.pt.setMode(0, False, False)
 		width = 0	
 		print(lines)
 		for (stretch, txt) in lines:
@@ -19,7 +20,7 @@ class SimpleLabelPrinter:
 			self.pt.textToBuffer(0, top, stretch, txt)
 			top = top + stretch[1]*8 + 1
 	def preview(self):
-		self.pt.showBuffer()
+		return self.pt.showBufferTk()
 	def print(self):
 		self.pt.printBuffer()
 		self.pt.print(False)
@@ -36,9 +37,10 @@ for arg in args:
 
 	
 invpr.simpleLabel(lines)
-invpr.preview()
-print("Press ENTER to print")
-input()
+if not invpr.preview():
+	sys.exit(1)
+#print("Press ENTER to print")
+#input()
 invpr.print()
 
 
