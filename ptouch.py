@@ -133,7 +133,9 @@ class PTouch:
 		tapetype = status[11]
 		reserved = status[12:15]
 		mode = status[15]
-		print_density = status[16]
+		print_density_bytes = status[16]
+		print_density = print_density_bytes & 0b1111
+		barcode_control = (print_density_bytes & 0b110000) >> 4
 		reserved2 = status[17:32]
 		
 		print("Header:         ",end="")
@@ -154,10 +156,11 @@ class PTouch:
 		if err2 & 0x08: print("RECEPTION_BUFFER_FULL ",end="")
 		print("")
 
-		print("Tape Width:    %d" % (self.tapewidth))
-		print("Tape Type:     %d" % (tapetype))
-		print("Mode:          %d" % (mode))
-		print("Print Density: %d" % (print_density))
+		print("Tape Width:     %d" % (self.tapewidth))
+		print("Tape Type:      %d" % (tapetype))
+		print("Mode:           %d" % (mode))
+		print("Print Density:  %d" % (print_density))
+		print("Barcode Ctrl:   %d (%s)" % (barcode_control, PTouch.BARCODE_CONTROL[barcode_control]))
 		
 		# Available dots, copied from manual
 		if self.tapewidth == 24:
