@@ -1,3 +1,5 @@
+.vscode
+config.py
 *~
 build
 *.bak
