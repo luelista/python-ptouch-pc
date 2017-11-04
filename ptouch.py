@@ -20,20 +20,20 @@ class PTouch:
 			self.ser.connect(serPort)
 			self.isSerial = False
 		elif isinstance(serPort, str):
-			self.ser = serial.Serial(port=serPort, baudrate=9600)
+			self.ser = serial.Serial(port=serPort, baudrate=9600, dsrdtr=True)
 			self.isSerial = True
 		else:
-			raise "Param must be tupel for TCP or string for serial port"
+			raise "Param must be tuple for TCP or string for serial port"
 		self.statusRequest()
 
 	# Printer communication routines
 
 	def initPrinter(self):
-		self.writeBytes(0x1b, 64)  # ESC @
+		self.writeBytes(0x1b, 0x40)  # ESC @
 
 	def setMode(self, feedAmount=26, autocut=True, mirrorPrint=False):
 		mode = feedAmount | (1<<6 if autocut else 0) | (1<<7 if mirrorPrint else 0)
-		self.writeBytes(0x1b, 0x69, 0x4d, mode)
+		self.writeBytes(0x1b, 0x69, 0x4d, mode) # ESC i M
 
 	def writeBytes(self, *b):
 		print(bytearray(b))
@@ -45,7 +45,7 @@ class PTouch:
 
 	def print(self, eject=True):
 		if eject:
-			self.writeBytes(0x03)
+			self.writeBytes(0x1a)
 		else:
 			self.writeBytes(0x0C) # Form Feed
 
@@ -63,7 +63,8 @@ class PTouch:
 		#  ein 1 dot hoch und so breit wie das bild breit ist
 		lineheight = 24
 		lines_ceil = int(math.ceil(self.dotswidth / lineheight))
-		lines = int(math.floor(self.dotswidth / lineheight))
+		#lines = int(math.floor(self.dotswidth / lineheight))
+		lines = lines_ceil
 		# sollte eigentlich mit math.ceil funktionieren - allerdings meldet der Drucker dann den Fehler PRINT BUFFER FULL
 
 		size = int(len(bitmap)/self.dotswidth)
@@ -76,29 +77,30 @@ class PTouch:
 					bmp[col *lineheight + y_pos] = bitmap[line_start_idx + col]
 			self.send24RowImage(bmp)
 			print("\n--> sent line %d of %d"%(line+1,lines_ceil))
-			time.sleep(0.8)
-			self.writeBytes(0x0d, 0x0a)
-			time.sleep(0.8)
+			#time.sleep(0.8)
+			if line != lines - 1:
+				self.writeBytes(0x0d, 0x0a)
+				#time.sleep(0.8)
 
-		if lines_ceil > lines:
-			# letzte partielle Zeile
-			missing_rows = self.dotswidth - lineheight*lines
-			jump_up_rows = lineheight - missing_rows
-			print("missing=",missing_rows,"jump up:",jump_up_rows)
-			self.setRelPosition(-jump_up_rows-10)
-			time.sleep(3.8)
+		# if lines_ceil > lines:
+		# 	# letzte partielle Zeile
+		# 	missing_rows = self.dotswidth - lineheight*lines
+		# 	jump_up_rows = lineheight - missing_rows
+		# 	print("missing=",missing_rows,"jump up:",jump_up_rows)
+		# 	#self.setRelPosition(-jump_up_rows-10)
+		# 	time.sleep(3.8)
 
-			bmp = bytearray(lineheight * size)
-			for y_pos in range(lineheight):
-				line_start_idx = (line*lineheight+y_pos-jump_up_rows)*size
-				if line_start_idx >= len(bitmap): continue
-				for col in range(size):
-					bmp[col *lineheight + y_pos] = bitmap[line_start_idx + col]
-			self.send24RowImage(bmp)
-			print("\n--> sent last partial line of %d"%(lines_ceil))
-			time.sleep(0.8)
-			self.writeBytes(0x0d, 0x0a)
-			time.sleep(0.8)
+		# 	bmp = bytearray(missing_rows * size)
+		# 	for y_pos in range(missing_rows):
+		# 		line_start_idx = (line*lineheight+y_pos)*size
+		# 		if line_start_idx >= len(bitmap): continue
+		# 		for col in range(size):
+		# 			bmp[col *missing_rows + y_pos] = bitmap[line_start_idx + col]
+		# 	self.send24RowImage(bmp)
+		# 	print("\n--> sent last partial line of %d"%(lines_ceil))
+		# 	time.sleep(0.8)
+		# 	self.writeBytes(0x0d, 0x0a)
+		# 	time.sleep(0.8)
 
 
 
@@ -118,8 +120,10 @@ class PTouch:
 				byte = byte | ((bitmap[i*8+7-b] & 0x01) << b)
 			bmp3[i] = byte
 			print(format(bmp3[i], '08b'), end="")
+			if self.isSerial:
+				self.writeBytes(byte)
 		if self.isSerial:
-			self.ser.write(bmp3)
+			pass #self.ser.write(bmp3)
 		else:
 			self.ser.send(bmp3)
 
@@ -148,7 +152,7 @@ class PTouch:
 	# Printer status request
 
 	def statusRequest(self):
-		self.writeBytes(0x1b, 0x69, 0x53)
+		self.writeBytes(0x1b, 0x69, 0x53) # ESC i S
 		
 		if self.isSerial:
 			status = self.ser.read(32)
