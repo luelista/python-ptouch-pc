@@ -235,11 +235,32 @@ class PTouch:
 		(stretchX, stretchY) = stretch
 		return len(text) * stretchX * 8
 	
-	def showBuffer(self):
+	def showBufferAscii(self):
 		for row in range(self.dotswidth):
 			for col in range(self.buffersize):
 				print('.' if self.buffer[row*self.buffersize + col] == 0 else '#', end='')
 			print("|")
+
+	def showBufferTk(self):
+		BLACK=[0,0,0]
+		RED=[255,0,0]
+		BLUE=[0,0,255]
+		WHITE=[255,255,255]
+		# dot ruler
+		ruler5 = [ RED if i % 5 == 0 else WHITE for i in range(self.buffersize)]
+		ruler10 = [ RED if i % 10 == 0 else WHITE for i in range(self.buffersize)]
+		ruler50 = [ RED if i % 50 == 0 else WHITE for i in range(self.buffersize)]
+
+		# cm ruler (180 dpi => ~ 71dots = 1cm)
+		rulercm = [ BLUE if i % 71 == 0 else WHITE for i in range(self.buffersize)]
+
+		ruler=ruler50*5+ruler10*5+ruler5*5+rulercm*7
+
+		buffer = [ WHITE if self.buffer[row*self.buffersize + col] == 0 else BLACK 
+						for row in range(self.dotswidth)
+						for col in range(self.buffersize)]
+		from graphicPreview import displayGraphic
+		return displayGraphic(self.buffersize, self.dotswidth+22, ruler + buffer)
 
 
 
