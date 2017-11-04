@@ -52,26 +52,54 @@ class PTouch:
 	def setAbsPosition(self, pos):
 		self.writeBytes(0x1b, 0x24, pos%256, pos>>8)
 
+	def setRelPosition(self, pos):
+		if pos < 0: pos = 65536 + pos
+		self.writeBytes(0x1b, ord("\\"), pos%256, pos>>8)
+
 	# bitmap is an array of pixels, where each pixel is an int of 1 or 0
 	# each row is scanned left to right, then the rows top to bottom
 	def sendFullImage(self, bitmap):
-		rowheight = 24
-		rows = int(math.ceil(self.dotswidth / rowheight))
-		rows = int(math.floor(self.dotswidth / rowheight))
+		# begriffsklärung: eine line besteht aus 24 rows, eine row ist 
+		#  ein 1 dot hoch und so breit wie das bild breit ist
+		lineheight = 24
+		lines_ceil = int(math.ceil(self.dotswidth / lineheight))
+		lines = int(math.floor(self.dotswidth / lineheight))
 		# sollte eigentlich mit math.ceil funktionieren - allerdings meldet der Drucker dann den Fehler PRINT BUFFER FULL
 
 		size = int(len(bitmap)/self.dotswidth)
-		for row in range(rows):
-			bmp = bytearray(rowheight * size)
-			for line in range(rowheight):
-				lineidx = (row*rowheight+line)*size
-				if lineidx >= len(bitmap): continue
+		for line in range(lines):
+			bmp = bytearray(lineheight * size)
+			for y_pos in range(lineheight):
+				line_start_idx = (line*lineheight+y_pos)*size
+				if line_start_idx >= len(bitmap): continue
 				for col in range(size):
-					bmp[col *rowheight + line] = bitmap[lineidx + col]
+					bmp[col *lineheight + y_pos] = bitmap[line_start_idx + col]
 			self.send24RowImage(bmp)
+			print("\n--> sent line %d of %d"%(line+1,lines_ceil))
 			time.sleep(0.8)
 			self.writeBytes(0x0d, 0x0a)
 			time.sleep(0.8)
+
+		if lines_ceil > lines:
+			# letzte partielle Zeile
+			missing_rows = self.dotswidth - lineheight*lines
+			jump_up_rows = lineheight - missing_rows
+			print("missing=",missing_rows,"jump up:",jump_up_rows)
+			self.setRelPosition(-jump_up_rows-10)
+			time.sleep(3.8)
+
+			bmp = bytearray(lineheight * size)
+			for y_pos in range(lineheight):
+				line_start_idx = (line*lineheight+y_pos-jump_up_rows)*size
+				if line_start_idx >= len(bitmap): continue
+				for col in range(size):
+					bmp[col *lineheight + y_pos] = bitmap[line_start_idx + col]
+			self.send24RowImage(bmp)
+			print("\n--> sent last partial line of %d"%(lines_ceil))
+			time.sleep(0.8)
+			self.writeBytes(0x0d, 0x0a)
+			time.sleep(0.8)
+
 
 
 	# bitmap is an array of pixels, where each pixel is an int of 1 or 0
