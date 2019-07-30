@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # vim: noexpandtab 
 #from hubarcode.code128 import Code128Encoder
+import itf
 from hubarcode.datamatrix import DataMatrixEncoder
 from hubarcode.datamatrix.renderer import DataMatrixRenderer
 import serial, socket
@@ -169,31 +170,33 @@ class PTouch:
 		print_density = print_density_bytes & 0b1111
 		barcode_control = (print_density_bytes & 0b110000) >> 4
 		reserved2 = status[17:32]
-		
-		print("Header:         ",end="")
-		for x in header: print("%02X "%(x), end="")
-		print("")
-		print("Error 1:        ",end="")
-		print("%02X "%(err1),end="")
-		if err1 & 0x01: print("NO_TAPE ",end="")
-		if err1 & 0x02: print("TAPE_END ",end="")
-		if err1 & 0x04: print("CUTTER_JAM ",end="")
-		print("")
+		q = ""
+		q += "Header:         "
+		for x in header: q += "%02X "%(x)
+		q += "\n"
+		q += "Error 1:        "
+		q += "%02X "%(err1)
+		if err1 & 0x01: q += "NO_TAPE "
+		if err1 & 0x02: q += "TAPE_END "
+		if err1 & 0x04: q += "CUTTER_JAM "
+		q += "\n"
 
-		print("Error 2:        ",end="")
-		print("%02X "%(err2),end="")
-		if err2 & 0x01: print("TAPE_CHANGE_ERROR ",end="")
-		if err2 & 0x02: print("PRINT_BUFFER_FULL ",end="")
-		if err2 & 0x04: print("TRANSMISSION_ERROR ",end="")
-		if err2 & 0x08: print("RECEPTION_BUFFER_FULL ",end="")
-		print("")
+		q += "Error 2:        "
+		q += "%02X "%(err2)
+		if err2 & 0x01: q += "TAPE_CHANGE_ERROR "
+		if err2 & 0x02: q += "PRINT_BUFFER_FULL "
+		if err2 & 0x04: q += "TRANSMISSION_ERROR "
+		if err2 & 0x08: q += "RECEPTION_BUFFER_FULL "
+		q += "\n"
 
-		print("Tape Width:     %d" % (self.tapewidth))
-		print("Tape Type:      %d" % (tapetype))
-		print("Mode:           %d" % (mode))
-		print("Print Density:  %d" % (print_density))
-		print("Barcode Ctrl:   %d (%s)" % (barcode_control, PTouch.BARCODE_CONTROL[barcode_control]))
-		
+		q += "Tape Width:     %d\n" % (self.tapewidth)
+		q += "Tape Type:      %d\n" % (tapetype)
+		q += "Mode:           %d\n" % (mode)
+		q += "Print Density:  %d\n" % (print_density)
+		q += "Barcode Ctrl:   %d (%s)\n" % (barcode_control, PTouch.BARCODE_CONTROL[barcode_control])
+		print(q)
+		self.statusInfoText = q
+
 		# Available dots, copied from manual
 		if self.tapewidth == 24:
 			self.dotswidth = 128
@@ -205,6 +208,7 @@ class PTouch:
 			self.dotswidth = 49
 		elif self.tapewidth == 6:
 			self.dotswidth = 28
+		return q
 
 
 	# Buffer operations
@@ -241,12 +245,20 @@ class PTouch:
 	def code128ToBuffer(self, x, y, stretch, text):
 		(barwidth, height)=stretch
 		dm = Code128Encoder(text)
-		for c in range(len(dmtx.bars)):
+		for c in range(len(dm.bars)):
 			col = x + c*barwidth
 			bit = dm.bars[c]
 			for sx in range(barwidth):
 				for sy in range(height):
 					self.buffer[ (y+sy) * self.buffersize + col+sx  ] = bit
+				
+	def itfToBuffer(self, x, y, stretch, text):
+		(barwidth, height)=stretch
+		dm = itf.build(text)
+		for c in range(len(dm)):
+			bit = 0xff if dm[c] == "1" else 0x00
+			for sy in range(height):
+				self.buffer[ (y+sy) * self.buffersize + x+c  ] = bit
 				
 	def dataMatrixToBuffer(self, x, y, stretch, text):
 		dm = DataMatrixEncoder(text)
@@ -292,7 +304,7 @@ class PTouch:
 						for row in range(self.dotswidth)
 						for col in range(self.buffersize)]
 		from graphicPreview import displayGraphic
-		return displayGraphic(self.buffersize, self.dotswidth+22, ruler + buffer)
+		return displayGraphic(self.buffersize, self.dotswidth+22, ruler + buffer, self.statusInfoText)
 
 
 

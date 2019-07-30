@@ -36,13 +36,14 @@ class InventoryLabelPrinter:
 		url  = self.urlPrefix + rid
 		urlstretch = (1,1)
 		itemstretch = (2,3); n1top = 0
+		item2stretch = (1,2); n2top = 26
 		self.pt.makeBuffer(max( self.pt.textWidth(item2stretch, n2), 30 ))
 		self.pt.code128ToBuffer(0, 27, (1,18), rid)
 		self.pt.textToBuffer(0, n1top, itemstretch, n1)
 		self.pt.textToBuffer(0, 41, urlstretch, url)
 
 	def preview(self):
-		self.pt.showBuffer()
+		return self.pt.showBufferTk()
 	def print(self):
 		self.pt.printBuffer()
 		self.pt.print(False)
@@ -57,10 +58,9 @@ if len(sys.argv)>2: n2=sys.argv[2]
 if len(sys.argv)>3: n3=sys.argv[3]
 if len(sys.argv)>4: rid=sys.argv[4]
 
-invpr.inventoryLabel(rid,n1,n2,n3)
-invpr.preview()
-print("Press ENTER to print")
-input()
+invpr.inventoryLabel2(rid,n1,n2,n3)
+if not invpr.preview(): sys.exit(1)
+
 invpr.print()
 
 
