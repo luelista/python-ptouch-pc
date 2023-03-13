@@ -37,8 +37,8 @@ class PTouch:
 		self.writeBytes(0x1b, 0x69, 0x4d, mode) # ESC i M
 
 	def writeBytes(self, *b):
-		print(bytearray(b))
-		print(" ".join("%02X"%x for x in b))
+		#print(bytearray(b))
+		#print(" ".join("%02X"%x for x in b))
 		if self.isSerial:
 			self.ser.write(bytearray(b))
 		else:
@@ -81,7 +81,7 @@ class PTouch:
 			#time.sleep(0.8)
 			if line != lines - 1:
 				self.writeBytes(0x0d, 0x0a)
-				#time.sleep(0.8)
+				time.sleep(0.8)
 
 		# if lines_ceil > lines:
 		# 	# letzte partielle Zeile
@@ -127,6 +127,7 @@ class PTouch:
 			pass #self.ser.write(bmp3)
 		else:
 			self.ser.send(bmp3)
+		self.statusRequest()
 
 	def sendText(self, text):
 		img = bytearray(len(text)*8*24)
@@ -305,6 +306,37 @@ class PTouch:
 						for col in range(self.buffersize)]
 		from graphicPreview import displayGraphic
 		return displayGraphic(self.buffersize, self.dotswidth+22, ruler + buffer, self.statusInfoText)
+
+	def writeBufferXPM2(self, fileDesc):
+		fileDesc.write(b"! XPM2\n%d %d 2 1\n* c #000000\n. c #ffffff\n" % (self.buffersize, self.dotswidth, ))
+		for row in range(self.buffersize):
+			data = [b'.' if self.buffer[row*self.buffersize + col] == 0 else b'*' for col in range(self.dotswidth)]
+			fileDesc.write(b"".join(data) + b"\n")
+
+	def writeBufferPBM(self, fileDesc):
+		fileDesc.write("P1\n%d %d\n" % (self.buffersize, self.dotswidth, ))
+		for row in range(self.dotswidth):
+			data = ['0' if self.buffer[row*self.buffersize + col] == 0 else '1' for col in range(self.buffersize)]
+			fileDesc.write(" ".join(data) + "\n")
+
+	def readBufferPBM(self, fileDesc):
+		headers = []
+		while len(headers) < 2:
+			line = fileDesc.readline().strip()
+			if line.startswith("#"): continue
+			headers.append(line)
+		assert(headers[0].strip() == "P1")
+		header2 = headers[1].split(" ")
+		width, height = int(header2[0]), int(header2[1])
+		if height != self.dotswidth:
+			raise Error("Image height mismatch (tape: %d, image: %d)"%(self.dotswidth,height))
+		self.makeBuffer(width)
+		content = fileDesc.read().strip().replace(" ","").replace("\n","").replace("\r","")
+		for i in range(self.dotswidth * self.buffersize):
+			self.buffer[i] = int(content[i])
+
+
+
 
 
 

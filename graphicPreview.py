@@ -4,6 +4,7 @@ import random, sys
 class App:
     def closedlg(self, response):
         self.dialog_result = response
+        self.t.withdraw()
         self.t.destroy()
     def __init__(self, t, width, height, rgb_colors, infotext):
         self.width = width

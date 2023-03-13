@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Canvas experiment</title>
+    <script src="JsBarcode.itf.min.js"></script>
+    <script type="application/javascript">
+        var dotswidth = 128;
+        var prefix = "WELLER.IO/";
+
+      function draw() {
+        const canvas = document.getElementById("canvas");
+        const barcodeCanvas = document.getElementById("barcode");
+        const ctx = canvas.getContext("2d");
+        const fontSize = 40;
+        ctx.font = ""+fontSize+"px sans-serif";
+        var text = document.getElementById("inputTxt").value;
+        var lines = text.split(/\n/); 
+        var width = 0;
+        var lineheight = fontSize;
+        var remainheight = dotswidth - (lines.length*lineheight) - 15;
+        var linepadding = remainheight / (lines.length + 1)
+        for(var i = 0; i < lines.length; i++) {
+          var measurement = ctx.measureText(lines[i]);
+          width = Math.max(width, measurement.width);
+        }
+        canvas.width = width;
+        canvas.height = dotswidth;
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        for(var i = 0; i < lines.length; i++) {
+          ctx.textBaseline = "top";
+          ctx.fillStyle = "black";
+          ctx.font = ""+fontSize+"px sans-serif";
+          ctx.fillText(lines[i], 0, (i*lineheight + linepadding)|0);
+          
+          
+        }
+
+        JsBarcode(barcodeCanvas, "12345677", {margin:0,displayValue:false,width:Math.floor(width/81)});
+        ctx.drawImage(barcodeCanvas, 0, canvas.height-20);
+      }
+
+      function convertToPBM(ctx){
+        var out = "P1\n" + ctx.canvas.width + " " + ctx.canvas.height + "\n";
+        var imgData = ctx.getImageData(0,0,ctx.canvas.width,ctx.canvas.height);
+        var d = imgData.data;
+        var i = 0;
+        console.log(d);
+        while(i < d.length){
+            out += convertRgbToBinary(d[i++],d[i++],d[i++]) ? "0" : "1";
+            i++; // skip alpha
+        }
+        return out;
+      }
+      function convertRgbToBinary(r,g,b) {
+        return ((r + g + b) / 3 ) > 127;
+      }
+      function print() {
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+        const bitmap = convertToPBM(ctx);
+        fetch('/print', {
+          method: 'POST', body: bitmap, headers: {'content-type':'image/pbm'}
+        });
+      }
+    </script>
+  </head>
+  <body onload="draw();">
+    <textarea id="inputTxt" oninput="draw();" rows="5" cols="70"></textarea>
+    <hr>
+
+    <canvas id="canvas" style="border:1px solid red;"></canvas>
+    <hr>
+    <canvas id="barcode" style="display:none"></canvas>
+    <hr>
+    <button onclick="print()">Print</button>
+  </body>
+</html>

@@ -3,6 +3,7 @@ from ptouch import PTouch
 import config
 import sys
 import random, string, math
+from subprocess import check_call
 class SimpleLabelPrinter:
 	def __init__(self, config):
 		self.pt = PTouch(config.serialPort)
@@ -37,10 +38,14 @@ for arg in args:
 
 	
 invpr.simpleLabel(lines)
+with open("preview.pbm","w") as f:
+	invpr.pt.writeBufferPBM(f)
+	check_call(["open", "preview.pbm"])
 if not invpr.preview():
 	sys.exit(1)
-#print("Press ENTER to print")
-#input()
+print("Press ENTER to print")
+input()
+
 invpr.print()
 
 

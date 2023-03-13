@@ -13,3 +13,4 @@ datamatrix-test.png
 pip-log.txt
 test.png
 testenv/
+__pycache__
